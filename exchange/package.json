@@ -1,0 +1,23 @@
+{
+  "name": "example-exchange-showcase",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Example Exchange (fictional, testnet): asks a WDK wallet to prove that the account a customer withdraws to is theirs, and checks the answer.",
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env.payout --env-file-if-exists=.env.ethereum server.mjs",
+    "donor": "node --env-file-if-exists=.env.ethereum test-donor.mjs",
+    "test-wallet": "node test-wallet.mjs"
+  },
+  "dependencies": {
+    "@concordium/wdk-identity-concordium": "file:packages/concordium-wdk-identity-concordium-0.0.0.tgz",
+    "@concordium/wdk-wallet-concordium": "file:packages/concordium-wdk-wallet-concordium-0.1.0.tgz",
+    "@concordium/web-sdk": "12.0.2",
+    "@tetherto/wdk-wallet-evm": "^1.0.0-beta.26",
+    "ethers": "^6.17.0",
+    "qrcode": "1.5.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

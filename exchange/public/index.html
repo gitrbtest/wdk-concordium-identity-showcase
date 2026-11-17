@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concordium identity in a WDK wallet</title>
+<style>
+  :root { --ink: #13202f; --muted: #5b6673; --line: #d9dee4; --brand: #3d2b8f; --brand-soft: #efecfb; --ok: #0f7a4f; --ok-soft: #e4f5ec; --bad: #b3261e; --bad-soft: #fbe9e7; --wait: #8a5a00; --wait-soft: #fdf3dc; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Segoe UI', Helvetica, Arial, sans-serif; color: var(--ink); background: #f5f6f8; }
+  header { background: var(--brand); color: #fff; padding: 14px 24px 0; }
+  header .top { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+  header .top b { font-size: 20px; letter-spacing: .2px; }
+  header .top span { font-size: 13px; opacity: .85; }
+  header p { margin: 6px 0 12px; font-size: 13.5px; opacity: .92; max-width: 900px; line-height: 1.45; }
+  nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav button { background: transparent; color: #fff; border: 0; border-radius: 8px 8px 0 0; padding: 10px 16px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; opacity: .8; text-align: left; }
+  nav button.active { background: #f5f6f8; color: var(--brand); opacity: 1; }
+  nav button small { display: block; font-weight: 400; font-size: 12px; opacity: .85; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
+  .story { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 860px) { .story { grid-template-columns: 1fr; } }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+  .card h2 { font-size: 16px; margin: 0 0 4px; }
+  .card p.note { font-size: 13px; color: var(--muted); margin: 0 0 14px; line-height: 1.45; }
+  .wide { grid-column: 1 / -1; }
+  .step { font-size: 12px; font-weight: 700; color: var(--brand); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 4px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  input { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; font-size: 14px; }
+  input.mono, .mono { font-family: Consolas, 'Courier New', monospace; font-size: 12.5px; word-break: break-all; }
+  button.main, button.quiet { margin-top: 14px; background: var(--brand); color: #fff; border: 0; border-radius: 8px; padding: 10px 16px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button.quiet { background: transparent; color: var(--brand); border: 1px solid var(--brand); }
+  button:disabled { opacity: .5; cursor: default; }
+  .facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 14px; }
+  .facts dt { color: var(--muted); } .facts dd { margin: 0; }
+  .qr { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .qr img { width: 180px; height: 180px; border: 1px solid var(--line); border-radius: 8px; }
+  .code { font-size: 28px; font-weight: 700; letter-spacing: 4px; font-family: Consolas, monospace; color: var(--brand); }
+  .status { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; vertical-align: middle; }
+  .status.waiting { background: var(--wait-soft); color: var(--wait); }
+  .status.ok { background: var(--ok-soft); color: var(--ok); }
+  .status.bad { background: var(--bad-soft); color: var(--bad); }
+  ul.checks { list-style: none; padding: 0; margin: 12px 0 0; }
+  ul.checks li { padding: 8px 10px; border-radius: 8px; margin-bottom: 6px; font-size: 14px; background: #f5f6f8; }
+  ul.checks li.ok { background: var(--ok-soft); } ul.checks li.bad { background: var(--bad-soft); }
+  ul.checks small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .result { font-size: 14px; font-weight: 600; color: var(--ok); margin: 8px 0 0; }
+  .caption { font-size: 12.5px; color: var(--muted); background: var(--brand-soft); border-radius: 8px; padding: 8px 10px; margin-top: 12px; }
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 860px) { .compare { grid-template-columns: 1fr; } }
+  .side { border-radius: 10px; padding: 12px 14px; font-size: 13.5px; line-height: 1.5; }
+  .side h3 { font-size: 14px; margin: 0 0 6px; }
+  .side ul { margin: 0; padding-left: 18px; }
+  .side .sum { margin: 8px 0 0; font-weight: 600; }
+  .before { background: #f5f6f8; border: 1px solid var(--line); }
+  .after { background: var(--ok-soft); border: 1px solid #b9e2cc; }
+  .after .sum { color: var(--ok); }
+  pre { background: #10161f; color: #e6edf3; padding: 14px; border-radius: 10px; overflow: auto; font-size: 12px; line-height: 1.5; }
+  [hidden] { display: none !important; }
+  body[data-org="fund"] { --brand: #0b6e5f; --brand-soft: #e3f3ef; }
+  body[data-org="wallet"] { --brand: #1b2735; --brand-soft: #e8edf3; }
+  body[data-org="corp"] { --brand: #8a4b08; --brand-soft: #fbf0e3; }
+  header { transition: background .2s; }
+  .bar { height: 14px; background: #eef0f2; border-radius: 999px; overflow: hidden; margin: 8px 0 4px; }
+  .bar > div { height: 100%; background: var(--brand); width: 0; transition: width .4s; }
+  table.board { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 10px; }
+  table.board th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  table.board td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.board small { display: block; color: var(--muted); font-size: 12px; word-break: break-all; }
+  .badge { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--brand-soft); color: var(--brand); }
+  .switch { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .switch button { border: 0; background: #fff; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; color: var(--muted); }
+  .switch button.on { background: var(--brand); color: #fff; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<header>
+  <div class="top"><b>Concordium identity in a WDK wallet</b><span>a showcase · testnet · the organisations are made up</span></div>
+  <p>Maya has one WDK wallet on her phone: her Concordium identity, a Concordium account, and an Ethereum account with
+    USDT. Each tab is one story. This one: <b id="orgName">Example Exchange</b>.</p>
+  <nav>
+    <button data-tab="1" data-org="exchange" class="active">1. Withdraw to your own wallet<small>Example Exchange · prove the wallet is yours</small></button>
+    <button data-tab="2" data-org="exchange">2. Over 18?<small>Example Exchange · prove one fact, nothing else</small></button>
+    <button data-tab="3" data-org="fund">3. Pledge to a cause<small>Example Community Fund · verified pledges, paid in USDT</small></button>
+    <button data-tab="4" data-org="wallet">4. New phone<small>Maya's wallet · lose your phone, lose nothing</small></button>
+    <button data-tab="5" data-org="corp">5. Company card<small>Example Corp · an allowance for approved suppliers</small></button>
+  </nav>
+</header>
+
+<main>
+  <!-- ───────────── Story 1 ───────────── -->
+  <div class="story" id="tab1">
+    <section class="card wide">
+      <div class="step">What this story shows</div>
+      <h2>Checking that a private wallet belongs to the customer</h2>
+      <p class="note">Maya wants to withdraw CCD to her own wallet. Before an exchange sends money to a customer's own
+        (private) wallet, rules for crypto firms say it must check that the wallet really belongs to that customer.</p>
+      <div class="compare">
+        <div class="side before">
+          <h3>Today, on most chains</h3>
+          <ul>
+            <li>The wallet's address says nothing about who owns it.</li>
+            <li>The customer sends a small test payment from the wallet (a fee, and waiting), or uploads screenshots, or
+              signs a message with tools most customers don't have.</li>
+            <li>A person at the exchange reviews it before releasing the money: hours, sometimes days.</li>
+          </ul>
+          <p class="sum">The exchange learns that <i>someone</i> controls the address, not who.</p>
+        </div>
+        <div class="side after">
+          <h3>With a Concordium identity in the wallet</h3>
+          <ul>
+            <li>Every Concordium account is opened from an identity that an identity provider has checked.</li>
+            <li>The exchange shows a code; the customer approves one request in their wallet.</li>
+            <li>The wallet proves the account is theirs and shows their name and ID number, signed by the identity
+              provider. Nothing else about them is shared.</li>
+            <li>The exchange checks it against the chain in seconds, and pays out.</li>
+          </ul>
+          <p class="sum">Proof of control <i>and</i> of who, with no test payment and no manual review.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="step">Try it</div>
+      <h2>Maya's account at Example Exchange</h2>
+      <p class="note">Example Exchange's own record of its customer, from its usual sign-up checks (made-up test data).</p>
+      <dl class="facts" id="customer"></dl>
+      <h2 style="margin-top:20px">Withdraw to your own wallet</h2>
+      <label for="to">Your Concordium account (from your wallet)</label>
+      <input id="to" class="mono" placeholder="e.g. 4RiXaepfrhAj…" autocomplete="off">
+      <label for="amount">Amount (CCD, up to 50)</label>
+      <input id="amount" value="25" type="number" min="1" max="50" step="1">
+      <p class="note" style="margin:6px 0 0">The most you can withdraw at once is 50 CCD (testnet demo).</p>
+      <button class="main" id="withdraw">Withdraw</button>
+      <p id="formError" class="note" style="color:var(--bad);margin-top:8px"></p>
+    </section>
+
+    <section class="card" id="check">
+      <div class="step">Example Exchange's wallet check</div>
+      <h2>Is this wallet Maya's? <span class="status waiting" id="status" hidden></span></h2>
+      <p class="note" id="checkIdle">Start a withdrawal: Example Exchange then asks Maya's wallet to prove that the account
+        is hers, and to show her name and ID number so it can match its record.</p>
+      <div id="checkBody" hidden>
+        <div class="qr" id="qrBox"><img id="qr" alt="QR code of the request"><div><div class="note" style="margin:0">Code</div><div class="code" id="code"></div>
+          <p class="note" style="margin:6px 0 0">Scan it, or type the code in the wallet's Requests card.</p></div></div>
+        <div class="caption">In a real app, this request travels through the wallet connection (WalletConnect, or the
+          wallet's browser interface). Here a small relay on this computer carries it to the phone and the answer back.</div>
+        <ul class="checks" id="checks"></ul>
+        <p id="revealed" class="note" style="margin-top:12px"></p>
+        <p id="payout" class="result"></p>
+        <button class="quiet" id="again" hidden>New withdrawal</button>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <div class="step">Kept simple on purpose</div>
+      <h2>A happy-path demo: what a real exchange would add</h2>
+      <p class="note">This story shows the idea, so it leaves out things a real system needs. We know they matter; they are left out only to keep the demo short and clear.</p>
+      <ul class="note" style="margin:0;padding-left:18px;line-height:1.6">
+        <li><b>The customer record</b> is made-up test data; a real exchange has its own KYC records, keeps them up to date, and re-checks customers over time.</li>
+        <li><b>One check per withdrawal:</b> a real exchange would remember a verified wallet (and when it was checked), so regular withdrawals need no new proof each time.</li>
+        <li><b>Other checks</b> still apply: sanctions and fraud screening, limits, and the details exchanges share with each other under the travel rule.</li>
+        <li><b>The recording fee</b> for each question is paid from a shared test account; a real exchange pays it from its own account or a partner's.</li>
+        <li><b>The payout</b> comes from a shared test account, up to 50 CCD; a real exchange pays from its own wallets, with its own limits and approvals.</li>
+        <li><b>The wallet connection</b> is a small relay on this computer; a real exchange uses WalletConnect or the wallet's browser interface.</li>
+        <li><b>Records:</b> nothing is stored after the demo; a real exchange keeps each check as evidence for its auditors and regulators.</li>
+        <li><b>Errors:</b> only a few are handled (a declined request, another person's account, a node that does not answer).</li>
+        <li><b>Companies</b> could prove their wallet the same way with a Business ID (legal name and LEI), not shown here.</li>
+      </ul>
+    </section>
+
+    <section class="card wide">
+      <div class="step">Show the code</div>
+      <p class="note">Example Exchange's side of this story, as it runs here: build the question, check the answer, apply
+        its own rules. The cryptography is Concordium's; the identity package wraps it.</p>
+      <button class="quiet" data-code="1">Show the code</button>
+      <pre id="code1" hidden></pre>
+    </section>
+  </div>
+
+  <!-- ───────────── Story 2 ───────────── -->
+  <div class="story" id="tab2" hidden>
+    <section class="card wide">
+      <div class="step">What this story shows</div>
+      <h2>Confirming a customer is 18 or over</h2>
+      <p class="note">Some products, such as leveraged trading, may only be offered to customers aged 18 or over. Before
+        Maya can trade one, Example Exchange must check her age.</p>
+      <div class="compare">
+        <div class="side before">
+          <h3>Today</h3>
+          <ul>
+            <li>The customer uploads an ID document, or types a date of birth.</li>
+            <li>The exchange stores the whole document: name, date of birth, address, ID number.</li>
+            <li>To answer one yes/no question, it now holds data it must protect, and could lose in a breach.</li>
+          </ul>
+          <p class="sum">The exchange learns far more than "over 18".</p>
+        </div>
+        <div class="side after">
+          <h3>With a Concordium identity in the wallet</h3>
+          <ul>
+            <li>The exchange records its question on chain; its partner account pays the fee (sponsored).</li>
+            <li>Maya approves one request in her wallet.</li>
+            <li>The wallet proves "born before …", from her identity itself: no account, no name, no date of
+              birth.</li>
+            <li>The exchange checks it against the chain and its recorded question.</li>
+          </ul>
+          <p class="sum">The exchange learns exactly one thing: "over 18, yes".</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <div class="step">Try it</div>
+      <h2>Ask Maya's wallet <span class="status waiting" id="ageStatus" hidden></span></h2>
+      <button class="main" id="askAge">Ask: are you over 18?</button>
+      <p id="ageInfo" class="note" style="margin-top:10px"></p>
+      <div class="qr" id="ageQrBox" hidden><img id="ageQr" alt="QR code of the question"><div><div class="note" style="margin:0">Code</div><div class="code" id="ageCode"></div>
+        <p class="note" style="margin:6px 0 0">Scan it, or type the code in the wallet's Requests card.</p></div></div>
+      <ul class="checks" id="ageChecks"></ul>
+      <p id="ageResult" class="result"></p>
+    </section>
+
+    <section class="card wide">
+      <div class="step">Kept simple on purpose</div>
+      <h2>A happy-path demo: what a real exchange would add</h2>
+      <p class="note">This story shows the idea, so it leaves out things a real system needs. We know they matter; they are left out only to keep the demo short and clear.</p>
+      <ul class="note" style="margin:0;padding-left:18px;line-height:1.6">
+        <li><b>Other rules</b> may also apply before trading such products: country of residence, suitability or experience questions. Each could be another proof, or the same request.</li>
+        <li><b>Remembering the answer:</b> a real exchange would keep the checked answer (its audit record) so the customer is asked once, not before every trade.</li>
+        <li><b>The recording fee</b> is paid from a shared test account; a real exchange pays it from its own account or a partner's.</li>
+        <li><b>Acceptance:</b> whether such a proof is enough on its own is for each exchange and its regulator to decide.</li>
+        <li><b>The wallet connection</b> is a small relay on this computer; a real exchange uses WalletConnect or the wallet's browser interface.</li>
+      </ul>
+    </section>
+
+    <section class="card wide">
+      <div class="step">Show the code</div>
+      <p class="note">Example Exchange's side of this story: record the question on chain (sponsored), then check the answer.</p>
+      <button class="quiet" data-code="2">Show the code</button>
+      <pre id="code2" hidden></pre>
+    </section>
+  </div>
+  <!-- ───────────── Story 3 ───────────── -->
+  <div class="story" id="tab3" hidden>
+    <section class="card wide">
+      <div class="step">What this story shows</div>
+      <h2>Pledges from verified people, paid in USDT wherever it is</h2>
+      <p class="note">Example Community Fund is raising money for a new playground. People pledge an amount; when the
+        campaign closes with its goal reached, each pledge is paid in USDT.</p>
+      <div class="compare">
+        <div class="side before">
+          <h3>Today</h3>
+          <ul>
+            <li>Anyone can pledge under any name, including fake pledges that inflate a campaign to lure others in.</li>
+            <li>When the money arrives, often from an anonymous address on another chain, nobody can tell whether it
+              came from the person who pledged.</li>
+            <li>Donors who want privacy must trust the organiser with their details.</li>
+          </ul>
+          <p class="sum">The organiser can't tell real pledges from fake ones, or who actually paid.</p>
+        </div>
+        <div class="side after">
+          <h3>With a Concordium identity in a WDK wallet</h3>
+          <ul>
+            <li>Each pledge is proved twice, in one approval: by Concordium ("a verified person, 18 or over") and by the
+              wallet's Ethereum key ("I control the address that will pay").</li>
+            <li>Private by default: the board shows "verified donor"; a name appears only if the donor chooses.</li>
+            <li>Every pledge gets a public, timestamped fingerprint on Concordium: nothing personal, but unchangeable.</li>
+            <li>The payment is USDT on Ethereum, from the proven address, matched to the pledge.</li>
+          </ul>
+          <p class="sum">Concordium answers "who"; the payment happens wherever the money is.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <div class="step">The campaign</div>
+      <div class="row" style="justify-content:space-between">
+        <h2 id="cause">A new playground for Example Park <span class="status waiting" id="campaignStatus">open</span></h2>
+        <div class="switch"><button id="viewPublic" class="on">Public view</button><button id="viewOrganiser">Organiser view</button></div>
+      </div>
+      <div class="bar"><div id="progress"></div></div>
+      <p class="note" id="progressText" style="margin:0"></p>
+      <p class="note" id="viewNote" style="margin:8px 0 0">What anyone sees: no names unless the donor chose to show one, no addresses.</p>
+      <table class="board"><thead><tr><th>Donor</th><th>Pledged</th><th>Status</th><th>Record</th></tr></thead><tbody id="board"></tbody></table>
+      <p class="note" id="emptyBoard" style="margin-top:10px">No pledges yet.</p>
+      <div class="row">
+        <button class="quiet" id="closeCampaign">Close the campaign</button>
+        <button class="quiet" id="resetCampaign" hidden>Start the campaign again (demo)</button>
+      </div>
+      <p class="result" id="closeResult"></p>
+      <div id="payRequests" hidden>
+        <h2 style="margin-top:14px">Paying the pledges</h2>
+        <p class="note">Each donor's wallet gets a request to pay its pledge, from the address it proved. Scan the code, or
+          type it in the wallet's Requests card. Example Community Fund then finds each payment on Ethereum and matches it.</p>
+        <div id="payList" class="row" style="align-items:flex-start;gap:14px"></div>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <div class="step">Who holds what, who pays what</div>
+      <h2>Two blockchains, one wallet</h2>
+      <table class="board">
+        <thead><tr><th></th><th>On Concordium</th><th>On Ethereum</th></tr></thead>
+        <tbody>
+          <tr><td><b>Example Community Fund</b></td><td>an account: records each pledge's fingerprint, and pays those small fees in CCD</td><td>an address: receives the USDT payments</td></tr>
+          <tr><td><b>Maya</b></td><td>her identity and account: prove who she is; she pays nothing here</td><td>her address: holds her USDT, and a little ETH for Ethereum's fee</td></tr>
+        </tbody>
+      </table>
+      <p class="note" style="margin:10px 0 0">Both of Maya's accounts come from the one seed phrase in her WDK wallet. Pledging costs
+        her nothing. ETH is needed only when she pays, because USDT moves on Ethereum and Ethereum's fee is paid in ETH;
+        Concordium never touches the money, it answers "who" and keeps the record.</p>
+    </section>
+
+    <section class="card">
+      <div class="step">Try it</div>
+      <h2>Make a pledge</h2>
+      <p class="note">On Maya's phone, or from Rob's and Sam's wallets on this computer. The pledge is paid later, only if
+        the goal is reached.</p>
+      <label for="pledgeAmount">Amount (test USDT, up to 500)</label>
+      <input id="pledgeAmount" value="300" type="number" min="1" max="500" step="1">
+      <label style="display:flex;gap:8px;align-items:center;font-size:14px;color:var(--ink);margin-top:12px">
+        <input type="checkbox" id="showName" style="width:auto"> Show my name on the board</label>
+      <button class="main" id="pledge">Pledge</button>
+      <p id="pledgeError" class="note" style="color:var(--bad);margin-top:8px"></p>
+    </section>
+
+    <section class="card" id="pledgeCheck">
+      <div class="step">Example Community Fund's checks</div>
+      <h2>Is this pledge real? <span class="status waiting" id="pledgeStatus" hidden></span></h2>
+      <p class="note" id="pledgeIdle">Make a pledge: Example Community Fund then asks the donor's wallet to prove it.</p>
+      <div id="pledgeBody" hidden>
+        <div class="qr" id="pledgeQrBox"><img id="pledgeQr" alt="QR code of the pledge"><div><div class="note" style="margin:0">Code</div><div class="code" id="pledgeCode"></div>
+          <p class="note" style="margin:6px 0 0">Scan it, or type the code in the wallet's Requests card.</p></div></div>
+        <ul class="checks" id="pledgeChecks"></ul>
+        <p id="pledgeRecord" class="note" style="margin-top:10px"></p>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <div class="step">Kept simple on purpose</div>
+      <h2>A happy-path demo: what a real campaign would add</h2>
+      <p class="note">This story shows the idea, so it leaves out things a real system needs. We know they matter; they
+        are left out only to keep the demo short and clear.</p>
+      <ul class="note" style="margin:0;padding-left:18px;line-height:1.6">
+        <li><b>The recording fee</b> for each question is paid from a shared test account; a real fund pays it from its own account or a partner's.</li>
+        <li><b>Balances:</b> no check that the donor holds the pledged USDT when pledging, or enough ETH for the network fee when paying.</li>
+        <li><b>Binding pledges:</b> a pledge here is a promise; money could instead be held until the goal is reached (an escrow contract), with refunds if it is not.</li>
+        <li><b>Fees:</b> the donor holds a little ETH for Ethereum's fee; WDK can also let fees be paid in USDT, or by the campaign (gasless).</li>
+        <li><b>Deadlines and reminders:</b> "Close the campaign" is a button; a real campaign has a date, reminders and a payment window.</li>
+        <li><b>Late or missing payments,</b> partial payments, and pledges withdrawn before the close.</li>
+        <li><b>Real money and accounts:</b> test networks, a test USDT stand-in and shared test accounts; a real fund has its own accounts, real USDT, and its legal and tax duties.</li>
+        <li><b>Companies</b> could pledge the same way with a Business ID (legal name and LEI), not shown here.</li>
+      </ul>
+    </section>
+
+    <section class="card wide">
+      <div class="step">Show the code</div>
+      <p class="note">Example Community Fund's side: ask for the pledge, check both proofs, record its fingerprint on Concordium.</p>
+      <button class="quiet" data-code="3">Show the code</button>
+      <pre id="code3" hidden></pre>
+    </section>
+  </div>
+  <!-- ───────────── Story 4 ───────────── -->
+  <div class="story" id="tab4" hidden>
+    <section class="card wide">
+      <div class="step">What this story shows</div>
+      <h2>A new phone, and nothing is lost</h2>
+      <p class="note">Maya loses her phone, or changes it, in the middle of a campaign. Everything happens in her wallet; the
+        organisations simply go on recognising her.</p>
+      <div class="compare">
+        <div class="side before">
+          <h3>Today</h3>
+          <ul>
+            <li>A new phone often means signing in again and verifying again, service by service, sometimes with documents.</li>
+            <li>Whatever was only on the old phone is gone.</li>
+            <li>Commitments made from the old phone can be hard to pick up again.</li>
+          </ul>
+          <p class="sum">Changing phones means starting over in many places.</p>
+        </div>
+        <div class="side after">
+          <h3>With a Concordium identity in a WDK wallet</h3>
+          <ul>
+            <li>The seed phrase alone brings back her identity, from its identity provider, with no new verification.</li>
+            <li>Her Concordium account is found on chain, and her Ethereum address with its USDT is the same.</li>
+            <li>Her wallet asks Example Community Fund for her pledges, proving with her key that the paying address is hers.</li>
+            <li>She can still pay her pledge from the new phone, and Example Exchange still recognises her.</li>
+          </ul>
+          <p class="sum">Lose your phone, lose nothing: the seed phrase is the whole wallet.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <div class="step">Try it</div>
+      <h2>On Maya's phone, then on this page</h2>
+      <ol class="note" style="margin:0;padding-left:18px;line-height:1.7">
+        <li>Before: Maya has pledged on tab 3, and the campaign is still open.</li>
+        <li>Phone: <b>Show my seed phrase</b> (masked), keep a copy of the words, then <b>Start again</b>: the wallet is gone from the phone.</li>
+        <li>Phone: <b>New phone? Restore your wallet</b>, paste the words, <b>Restore from a seed phrase</b> (up to a minute).</li>
+        <li>Phone: her identity, account and Ethereum account are back; <b>My pledges</b> shows her pledge again.</li>
+        <li>Tab 3: <b>Close the campaign</b>; the new phone shows <b>Pay now</b>; she pays, and the payment is matched to the pledge she made on the old phone.</li>
+        <li>Tab 1 (optional): a small withdrawal to her address passes all three checks: Example Exchange still knows her.</li>
+      </ol>
+    </section>
+
+    <section class="card wide">
+      <div class="step">Kept simple on purpose</div>
+      <h2>A happy-path demo: what a real wallet would add</h2>
+      <p class="note">This story shows the idea, so it leaves out things a real system needs. We know they matter; they
+        are left out only to keep the demo short and clear.</p>
+      <ul class="note" style="margin:0;padding-left:18px;line-height:1.6">
+        <li><b>The seed phrase</b> must be written down and kept safe offline; real wallets guide users through that backup, and never show it on screen without a warning.</li>
+        <li><b>App data</b> (settings, history, contacts) is backed up separately by real wallets; here only what the seed phrase leads to comes back, plus the pledges the fund knows.</li>
+        <li><b>Finding your organisations:</b> here the wallet knows to ask Example Community Fund; a real wallet would keep a list of the organisations it dealt with, or let them find you.</li>
+        <li><b>An expired identity</b> would need a new verification; this one is valid until 2027.</li>
+      </ul>
+    </section>
+
+    <section class="card wide">
+      <div class="step">The wallet's side</div>
+      <p class="note">The restore, in the wallet app, around our identity package and Tether's WDK EVM module (shortened):</p>
+      <pre>const identity = new ConcordiumIdentity(seedPhrase, config, { cryptography: nativeConcordiumCryptography });
+const { identities } = await identity.recoverAll();   // identities back from their providers, accounts found on chain
+const found = identities.find((x) => x.accounts?.length);
+await secureStorage.keep(await identity.exportIdentity(found));
+
+// The pledges lived on the old phone: ask the fund, proving the paying address is ours.
+const from = await ethereumAccount.getAddress();       // WDK EVM module, same seed phrase
+const signature = await ethereumAccount.sign(`List the pledges paid from ${from} (${now})`);
+const myPledges = await fetch(`${fund}/relay/pledges?from=${from}&amp;at=${now}&amp;signature=${signature}`);</pre>
+    </section>
+  </div>
+  <!-- ───────────── Story 5 ───────────── -->
+  <div class="story" id="tab5" hidden>
+    <section class="card wide">
+      <div class="step">What this story shows</div>
+      <h2>A company card in an employee's own wallet</h2>
+      <p class="note">Maya works for Example Corp. Instead of a plastic company card, Example Corp tops up an allowance in a
+        token on her own wallet account, for approved suppliers only, and pays the network fees for her.</p>
+      <div class="compare">
+        <div class="side before">
+          <h3>Today</h3>
+          <ul>
+            <li>A plastic card, or paying herself and claiming it back later with receipts and expense reports.</li>
+            <li>The company's policy (which suppliers, how much) is often checked only afterwards, in the expense report.</li>
+            <li>The finance team sees spending days or weeks later.</li>
+          </ul>
+          <p class="sum">Control comes after the money is spent.</p>
+        </div>
+        <div class="side after">
+          <h3>With a Concordium identity in a WDK wallet</h3>
+          <ul>
+            <li>Example Corp tops up an allowance in a token on Maya's own account; her keys stay on her phone.</li>
+            <li>Her card checks the company's approved suppliers before paying; the company authorises each payment and
+              pays its fee (a sponsored transaction), so she needs no CCD.</li>
+            <li>Every payment is on chain at once: the company sees it live.</li>
+            <li>Some tokens go further: their issuer enforces who may hold or receive them, on chain.</li>
+          </ul>
+          <p class="sum">Control before the money moves, and every payment visible as it happens.</p>
+        </div>
+      </div>
+      <p class="caption" style="margin-top:12px">For the purpose of this demo, Example Corp's treasury is played by a test
+        account. A real company would use its own company identity (Business ID), issued after the provider checks its
+        documents.</p>
+    </section>
+
+    <section class="card">
+      <div class="step">Example Corp</div>
+      <h2>Treasury and card</h2>
+      <dl class="facts" id="corpFacts"></dl>
+      <label for="topUpAmount">Top up Maya's card (TN, up to 100)</label>
+      <input id="topUpAmount" value="50" type="number" min="1" max="100" step="1">
+      <button class="main" id="topUp">Top up the card</button>
+      <p id="topUpInfo" class="note" style="margin-top:8px"></p>
+    </section>
+
+    <section class="card">
+      <div class="step">Example Corp's policy</div>
+      <h2>Approved suppliers</h2>
+      <p class="note">Maya's card checks this list before paying; Example Corp checks it again before it authorises a payment.</p>
+      <ul class="checks" id="suppliers"></ul>
+    </section>
+
+    <section class="card wide">
+      <div class="step">Live</div>
+      <h2>Card payments, as they happen</h2>
+      <p class="note">On Maya's phone, pay a supplier from her Example Corp card. Each payment appears here when it is final on chain.</p>
+      <table class="board"><thead><tr><th>When</th><th>What</th><th>Amount</th><th>Record</th></tr></thead><tbody id="corpPayments"></tbody></table>
+      <p class="note" id="corpEmpty" style="margin-top:10px">No payments yet.</p>
+    </section>
+
+    <section class="card wide">
+      <div class="step">And on chain</div>
+      <h2>Some tokens enforce the rules themselves</h2>
+      <p class="note">Above, the rules are Example Corp's policy. Some tokens' issuers keep an allow list on chain: only listed
+        accounts may hold or receive them. Our wallet package checks a payment in such a token (UPEU, a testnet token)
+        before sending anything.</p>
+      <button class="quiet" id="checkRegulated">Check a payment of 20 UPEU to Example Office Supplies</button>
+      <ul class="checks" id="regulatedResult"></ul>
+    </section>
+
+    <section class="card wide">
+      <div class="step">Kept simple on purpose</div>
+      <h2>A happy-path demo: what a real company card would add</h2>
+      <p class="note">This story shows the idea, so it leaves out things a real system needs. We know they matter; they
+        are left out only to keep the demo short and clear.</p>
+      <ul class="note" style="margin:0;padding-left:18px;line-height:1.6">
+        <li><b>The company's identity:</b> a test account plays Example Corp's treasury; a real company would use its Business ID.</li>
+        <li><b>Limits:</b> spending per day or month, per category, approvals for large amounts.</li>
+        <li><b>The allowance</b> here is simply what the company tops up; it could also be taken back, or expire.</li>
+        <li><b>Real money:</b> a testnet token (TN) stands in for a stablecoin; a real card would use a regulated one.</li>
+        <li><b>Accounting:</b> receipts, categories and exports to the company's books.</li>
+      </ul>
+    </section>
+
+    <section class="card wide">
+      <div class="step">Show the code</div>
+      <p class="note">Example Corp's side: authorise a card payment (build it from the employee's account, sign as sponsor), then send it once she has signed.</p>
+      <button class="quiet" data-code="5">Show the code</button>
+      <pre id="code5" hidden></pre>
+    </section>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const scan = (hash) => `<a href="https://testnet.ccdscan.io/?dcount=1&dentity=transaction&dhash=${hash}" target="_blank">see it on CCDScan</a>`;
+const checkList = (list) => (list ?? []).map((c) => `<li class="${c.ok ? 'ok' : 'bad'}">${c.ok ? '✔' : '✘'} ${c.label}<small>${c.why ?? ''}</small></li>`).join('');
+const setStatus = (el, [text, kind]) => { el.hidden = false; el.textContent = text; el.className = `status ${kind}`; };
+
+// ── Tabs ──
+document.querySelectorAll('nav button').forEach((b) => b.onclick = () => {
+  document.body.dataset.org = b.dataset.org;
+  $('orgName').textContent = { fund: 'Example Community Fund', wallet: 'Maya\'s own wallet', exchange: 'Example Exchange', corp: 'Example Corp' }[b.dataset.org];
+  document.querySelectorAll('nav button').forEach((x) => x.classList.toggle('active', x === b));
+  document.querySelectorAll('.story').forEach((s) => { s.hidden = s.id !== `tab${b.dataset.tab}`; });
+  try { localStorage.setItem('tab', b.dataset.tab); } catch {}
+});
+// For a recording: ?tabs=1,2 shows only those tabs, in that order, and opens the first (the others are hidden, not gone).
+const only = new URLSearchParams(location.search).get('tabs')?.split(',').map((t) => t.trim()).filter((t) => /^[1-5]$/.test(t));
+if (only?.length) {
+  const nav = document.querySelector('nav');
+  document.querySelectorAll('nav button').forEach((b) => { b.hidden = !only.includes(b.dataset.tab); });
+  only.forEach((t) => nav.appendChild(nav.querySelector(`button[data-tab="${t}"]`)));
+  nav.querySelector(`button[data-tab="${only[0]}"]`).click();
+} else {
+  try { const t = localStorage.getItem('tab'); if (t) document.querySelector(`nav button[data-tab="${t}"]`)?.click(); } catch {}
+}
+
+// ── Show the code (per story) ──
+document.querySelectorAll('[data-code]').forEach((b) => b.onclick = async () => {
+  const box = $(`code${b.dataset.code}`);
+  if (box.hidden && !box.textContent) box.textContent = (await (await fetch(`/api/code/${b.dataset.code}`)).json()).code;
+  box.hidden = !box.hidden;
+  b.textContent = box.hidden ? 'Show the code' : 'Hide the code';
+});
+
+// ── Story 1: withdraw to your own wallet ──
+let current = null, timer = null;
+fetch('/api/customer').then((r) => r.json()).then((c) => {
+  const rows = [['Customer', c.name], ['Since', c.since], ['First name', c.record.firstName], ['Last name', c.record.lastName], ['ID number', c.record.idDocNo]];
+  $('customer').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+});
+
+$('withdraw').onclick = async () => {
+  $('formError').textContent = '';
+  const label = $('withdraw').textContent;
+  $('withdraw').disabled = true; $('withdraw').textContent = 'Recording the question on chain…';
+  const res = await fetch('/api/withdrawals', { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ to: $('to').value.trim(), amount: $('amount').value.trim() }) });
+  const body = await res.json();
+  $('withdraw').textContent = label;
+  if (!res.ok) { $('formError').textContent = body.error; $('withdraw').disabled = false; return; }
+  current = body;
+  $('withdraw').disabled = true;
+  $('checkIdle').hidden = true; $('checkBody').hidden = false; $('again').hidden = true; $('qrBox').hidden = false;
+  $('qr').src = body.qr; $('code').textContent = body.code;
+  $('checks').innerHTML = ''; $('revealed').textContent = ''; $('payout').textContent = '';
+  show(body);
+  clearInterval(timer);
+  timer = setInterval(poll, 1500);
+};
+
+async function poll() {
+  const body = await (await fetch(`/api/withdrawals/${current.id}`)).json();
+  show(body);
+  const busy = ['waiting-for-wallet', 'checking'].includes(body.status) || body.payout?.state === 'sending';
+  if (body.status !== 'waiting-for-wallet') $('qrBox').hidden = true;
+  if (!busy) { clearInterval(timer); $('again').hidden = false; }
+}
+
+function show(w) {
+  const words = { 'waiting-for-wallet': ['waiting for the wallet', 'waiting'], checking: ['checking the answer…', 'waiting'],
+    released: ['withdrawal released', 'ok'], refused: ['not released', 'bad'], declined: ['declined in the wallet', 'bad'],
+    error: ['could not be checked', 'bad'] };
+  const p = w.payout;
+  setStatus($('status'), w.status === 'released' && p?.state === 'paid' ? ['withdrawal paid', 'ok'] : words[w.status] ?? [w.status, 'waiting']);
+  $('checks').innerHTML = checkList(w.checks);
+  const names = { firstName: 'first name', lastName: 'last name', idDocNo: 'ID number' };
+  $('revealed').textContent = w.revealed && Object.keys(w.revealed).length
+    ? `Shown by the wallet, signed by the identity provider: ${Object.entries(w.revealed).map(([k, v]) => `${names[k] ?? k} ${v}`).join(', ')}. Nothing else was shared.` : '';
+  const tx = p?.hash ? ` ${scan(p.hash)}.` : '';
+  $('payout').innerHTML = w.status !== 'released' ? ''
+    : !p || p.state === 'not-set-up' ? `${w.amount} CCD released to ${w.to.slice(0, 10)}…, with no test payment.`
+    : p.state === 'sending' ? `Sending ${w.amount} CCD on testnet to ${w.to.slice(0, 10)}… (a few seconds).${tx}`
+    : p.state === 'paid' ? `✔ Paid: ${w.amount} CCD sent to ${w.to.slice(0, 10)}…, with no test payment first.${tx}`
+    : `✘ The payout failed: ${p.why ?? 'unknown reason'}.${tx}`;
+}
+
+$('again').onclick = () => { $('checkBody').hidden = true; $('checkIdle').hidden = false; $('status').hidden = true; $('withdraw').disabled = false; current = null; };
+
+// ── Story 2: over 18? ──
+let ageTimer = null, ageId = null;
+$('askAge').onclick = async () => {
+  $('askAge').disabled = true;
+  $('ageChecks').innerHTML = ''; $('ageResult').textContent = ''; $('ageQrBox').hidden = true;
+  const res = await fetch('/api/age-checks', { method: 'POST' });
+  const body = await res.json();
+  if (!res.ok) { $('ageInfo').textContent = body.error; $('askAge').disabled = false; return; }
+  ageId = body.id;
+  showAge(body);
+  clearInterval(ageTimer);
+  ageTimer = setInterval(async () => showAge(await (await fetch(`/api/age-checks/${ageId}`)).json()), 1500);
+};
+
+function showAge(c) {
+  const words = { recording: ['recording the question…', 'waiting'], 'waiting-for-wallet': ['waiting for the wallet', 'waiting'],
+    checking: ['checking the answer…', 'waiting'], passed: ['over 18: confirmed', 'ok'], refused: ['not confirmed', 'bad'],
+    declined: ['declined in the wallet', 'bad'], error: ['something went wrong', 'bad'] };
+  setStatus($('ageStatus'), words[c.status] ?? [c.status, 'waiting']);
+  $('ageInfo').innerHTML = c.status === 'recording'
+    ? 'Example Exchange records its question on chain first, so an answer can only ever answer this question (a few seconds).'
+    : c.anchor ? `The question is recorded on chain (${scan(c.anchor)})`
+      + (c.fee ? `: sent by Example Exchange's account ${c.asker.slice(0, 6)}…, which holds no CCD; the fee, ${Number(c.fee.ccd).toFixed(2)} CCD, was paid by its partner account ${c.fee.payer.slice(0, 6)}… (a sponsored transaction).` : '.')
+    : (c.why ?? '');
+  $('ageQrBox').hidden = c.status !== 'waiting-for-wallet' || !c.qr;
+  if (c.qr) { $('ageQr').src = c.qr; $('ageCode').textContent = c.code; }
+  $('ageChecks').innerHTML = checkList(c.checks);
+  $('ageResult').textContent = c.status === 'passed' ? 'Maya can now trade the product. Example Exchange never saw her name, her date of birth or her account.' : '';
+  if (!['recording', 'waiting-for-wallet', 'checking'].includes(c.status)) { clearInterval(ageTimer); $('askAge').disabled = false; $('askAge').textContent = 'Ask again'; }
+}
+
+// ── Story 3: pledge to a cause ──
+let organiserView = false, pledgeTimer = null, currentPledge = null;
+const shortAddr = (a) => a ? `${a.slice(0, 8)}…${a.slice(-4)}` : '';
+const ccdScan = (hash) => `<a href="https://testnet.ccdscan.io/?dcount=1&dentity=transaction&dhash=${hash}" target="_blank">on Concordium</a>`;
+$('viewPublic').onclick = () => { organiserView = false; $('viewPublic').classList.add('on'); $('viewOrganiser').classList.remove('on'); refreshCampaign(); };
+$('viewOrganiser').onclick = () => { organiserView = true; $('viewOrganiser').classList.add('on'); $('viewPublic').classList.remove('on'); refreshCampaign(); };
+
+async function refreshCampaign() {
+  const c = await (await fetch('/api/campaign')).json();
+  $('progress').style.width = `${Math.min(100, (c.pledged / c.goal) * 100)}%`;
+  $('progressText').textContent = `${c.pledged} of ${c.goal} ${c.token} pledged`
+    + (c.status === 'reached' ? ` · ${c.paid} paid` : '') + ` · paid to ${shortAddr(c.receiveAddress)} on ${c.chain}`;
+  $('viewNote').textContent = organiserView
+    ? 'What only Example Community Fund sees: each donor\'s Concordium account, paying address and the checks. Still no date of birth, and no name unless shown.'
+    : 'What anyone sees: no names unless the donor chose to show one, no addresses.';
+  const status = { open: ['open', 'waiting'], reached: ['goal reached', 'ok'], missed: ['closed: goal not reached', 'bad'] }[c.status];
+  setStatus($('campaignStatus'), status);
+  const rows = c.pledges.filter((p) => p.status !== 'waiting-for-wallet');
+  $('emptyBoard').hidden = rows.length > 0;
+  $('board').innerHTML = rows.map((p) => {
+    const who = p.name ? p.name : 'Verified donor';
+    const extra = organiserView && p.organiser
+      ? `<small>Concordium account ${shortAddr(p.organiser.concordiumAccount)} · pays from ${shortAddr(p.organiser.payFrom)}</small>`
+        + `<small>${p.checks.map((x) => `${x.ok ? '✔' : '✘'} ${x.label}`).join('<br>')}</small>` : '';
+    const words = { pledged: 'pledged', 'to-pay': 'to pay', 'checking-payment': 'checking the payment…', paid: 'paid ✔',
+      'payment-failed': 'payment not matched', 'not-paid': 'not paid', lapsed: 'lapsed (nothing to pay)', refused: 'refused', declined: 'declined', checking: 'checking…', error: 'error' };
+    const sepolia = p.payment?.hash ? ` · <a href="https://sepolia.etherscan.io/tx/${p.payment.hash}" target="_blank">payment on Ethereum</a>` : '';
+    const payNote = p.payment?.error ? `<small>${p.payment.error}</small>` : '';
+    return `<tr><td>${who} <span class="badge">verified, 18+</span>${extra}</td><td>${p.amount}</td><td>${words[p.status] ?? p.status}${payNote}</td>`
+      + `<td>${p.record?.hash ? ccdScan(p.record.hash) : ''}${sepolia}${organiserView && p.fingerprint ? `<small>${p.fingerprint.slice(0, 16)}…</small>` : ''}</td></tr>`;
+  }).join('');
+  const toPay = c.pledges.filter((p) => p.payCode);
+  $('payRequests').hidden = c.status !== 'reached' || toPay.length === 0;
+  $('payList').innerHTML = toPay.map((p) => `<div style="text-align:center;font-size:13px">`
+    + `<div><b>${p.name ?? 'Verified donor'}</b> · ${p.amount}</div>`
+    + (p.status === 'to-pay' ? `<img src="${p.payQr}" alt="QR code" style="width:120px;height:120px"><div class="code" style="font-size:18px">${p.payCode}</div>`
+      : `<div style="margin-top:6px">${({ 'checking-payment': 'checking…', paid: '✔ paid', 'payment-failed': '✘ not matched', 'not-paid': 'not paid' })[p.status] ?? p.status}</div>`)
+    + `</div>`).join('');
+  $('closeCampaign').hidden = c.status !== 'open';
+  $('resetCampaign').hidden = c.status === 'open';
+  $('pledge').disabled = c.status !== 'open';
+  $('closeResult').textContent = c.status === 'reached'
+    ? (c.paid >= c.pledged && c.pledged > 0 ? `All pledges paid: ${c.paid} ${c.token} received, each from a verified donor's proven address.` : 'Goal reached: each pledge is now paid in USDT, from its proven address.')
+    : c.status === 'missed' ? 'Goal not reached: the pledges lapse and nobody is charged anything.' : '';
+}
+
+$('pledge').onclick = async () => {
+  $('pledgeError').textContent = '';
+  const label = $('pledge').textContent;
+  $('pledge').disabled = true; $('pledge').textContent = 'Recording the question on chain…';
+  const res = await fetch('/api/pledges', { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ amount: $('pledgeAmount').value, showName: $('showName').checked }) });
+  const body = await res.json();
+  $('pledge').textContent = label;
+  if (!res.ok) { $('pledgeError').textContent = body.error; $('pledge').disabled = false; return; }
+  currentPledge = body.id;
+  $('pledge').disabled = true;
+  $('pledgeIdle').hidden = true; $('pledgeBody').hidden = false; $('pledgeQrBox').hidden = false;
+  $('pledgeQr').src = body.qr; $('pledgeCode').textContent = body.code;
+  $('pledgeChecks').innerHTML = ''; $('pledgeRecord').innerHTML = '';
+  showPledge(body);
+};
+
+function showPledge(p) {
+  const words = { 'waiting-for-wallet': ['waiting for the wallet', 'waiting'], checking: ['checking the pledge…', 'waiting'],
+    pledged: ['pledge accepted', 'ok'], refused: ['refused', 'bad'], declined: ['declined in the wallet', 'bad'], error: ['could not be checked', 'bad'] };
+  setStatus($('pledgeStatus'), words[p.status] ?? [p.status, 'waiting']);
+  $('pledgeChecks').innerHTML = checkList(p.checks);
+  if (p.status !== 'waiting-for-wallet') $('pledgeQrBox').hidden = true;
+  $('pledgeRecord').innerHTML = p.record?.hash
+    ? `Its fingerprint is recorded ${ccdScan(p.record.hash)}${p.record.fee ? ` (fee ${Number(p.record.fee).toFixed(2)} CCD, paid by Example Community Fund)` : ''}: a public, timestamped record of this exact pledge, with nothing personal in it.`
+    : p.status === 'pledged' ? 'Recording its fingerprint on Concordium…' : '';
+}
+
+setInterval(async () => {
+  if ($('tab3').hidden) return;
+  await refreshCampaign();
+  if (currentPledge) {
+    const c = await (await fetch('/api/campaign')).json();
+    const p = c.pledges.find((x) => x.id === currentPledge);
+    if (p) {
+      showPledge(p);
+      if (!['waiting-for-wallet', 'checking'].includes(p.status) && (p.status !== 'pledged' || p.record)) { currentPledge = null; $('pledge').disabled = false; }
+    }
+  }
+}, 2000);
+refreshCampaign();
+
+$('closeCampaign').onclick = async () => { await fetch('/api/campaign/close', { method: 'POST' }); refreshCampaign(); };
+$('resetCampaign').onclick = async () => { await fetch('/api/campaign/reset', { method: 'POST' }); $('pledgeBody').hidden = true; $('pledgeIdle').hidden = false; $('pledgeStatus').hidden = true; refreshCampaign(); };
+
+// ── Story 5: the company card ──
+const ccdScanTx = (hash) => `<a href="https://testnet.ccdscan.io/?dcount=1&dentity=transaction&dhash=${hash}" target="_blank">on CCDScan</a>`;
+async function refreshCorp() {
+  const c = await (await fetch('/api/corp')).json();
+  $('corpFacts').innerHTML = [['Treasury (Example Corp)', `${c.treasury.token} ${c.token} · ${Number(c.treasury.ccd).toFixed(0)} CCD for fees`],
+    ['Card holder', `${c.cardholder.name} · ${c.cardholder.address.slice(0, 8)}…`], ['Card balance', `${c.cardholder.balance} ${c.token}`]]
+    .map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  $('suppliers').innerHTML = c.suppliers.map((x) => `<li class="${x.approved ? 'ok' : 'bad'}">${x.approved ? '✔' : '✘'} ${x.name}<small>${x.approved ? 'approved' : 'not approved: the card refuses to pay it'}</small></li>`).join('');
+  $('corpEmpty').hidden = c.payments.length > 0;
+  $('corpPayments').innerHTML = c.payments.map((p) => `<tr><td>${new Date(p.at).toLocaleTimeString()}</td>`
+    + `<td>${p.kind === 'top-up' ? `Top-up: Example Corp → ${p.to}'s card` : `${p.from} → ${p.to}<small>fee paid by Example Corp</small>`}</td>`
+    + `<td>${p.amount} ${c.token}</td><td>${p.ok ? '✔ ' : '✘ '}${ccdScanTx(p.hash)}</td></tr>`).join('');
+}
+$('topUp').onclick = async () => {
+  $('topUp').disabled = true; $('topUpInfo').textContent = 'Sending the top-up (a few seconds)…';
+  const res = await fetch('/api/corp/top-up', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ amount: $('topUpAmount').value }) });
+  const b = await res.json();
+  $('topUpInfo').innerHTML = res.ok ? `✔ ${b.amount} TN on Maya's card: ${ccdScanTx(b.hash)}` : b.error;
+  $('topUp').disabled = false; refreshCorp();
+};
+$('checkRegulated').onclick = async () => {
+  $('regulatedResult').innerHTML = '<li>Checking (nothing is sent)…</li>';
+  const b = await (await fetch('/api/corp/check-regulated', { method: 'POST' })).json();
+  $('regulatedResult').innerHTML = b.error ? `<li class="bad">${b.error}</li>`
+    : (b.ok ? '<li class="ok">✔ This payment could go.</li>'
+      : `<li class="bad">✘ Refused before sending: nothing was sent, no fee paid<small>${b.reasons.map((r) => r.message).join('<br>')}</small></li>`);
+};
+setInterval(() => { if (!$('tab5').hidden) refreshCorp(); }, 3000);
+document.querySelector('nav button[data-tab="5"]').addEventListener('click', refreshCorp);
+if (!$('tab5').hidden) refreshCorp();
+</script>
+</body>
+</html>

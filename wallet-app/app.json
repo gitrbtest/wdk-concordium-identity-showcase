@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "WDK wallet (showcase)",
+    "slug": "wdk-wallet-showcase",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "wdkshowcase",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.wdkshowcase.wallet"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ],
+      "expo-secure-store"
+    ]
+  }
+}

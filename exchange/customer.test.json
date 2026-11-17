@@ -1,0 +1,6 @@
+{
+  "name": "Maya",
+  "since": "2025",
+  "record": { "firstName": "John", "lastName": "Doe", "idDocNo": "12345" },
+  "note": "For testing with test-wallet.mjs: the details of the public test phrase's identity 1 (testnet provider 0's test form defaults)."
+}

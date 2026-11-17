@@ -1,0 +1,7 @@
+# Installed and generated: recreated by npm install and npm run android
+node_modules/
+/android/
+modules/*/android/build/
+/ios/
+.expo/
+# The packed identity package (packages/) IS tracked here: each commit records the snapshot it ran with.

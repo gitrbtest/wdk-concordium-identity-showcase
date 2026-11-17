@@ -1,0 +1,13 @@
+# Private settings: testnet seeds and keys. Never commit. (The .example files are templates, with nothing private.)
+.env*
+**/.env*
+!**/.env*.example
+
+# Installed and generated: recreated by npm install, npm run android, Metro
+node_modules/
+.expo/
+wallet-app/android/
+wallet-app/ios/
+modules/*/android/build/
+exchange/campaign-state.json
+exchange/corp-state.json

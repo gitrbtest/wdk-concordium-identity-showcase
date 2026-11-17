@@ -1,0 +1,6 @@
+{
+  "name": "Maya",
+  "since": "2025",
+  "record": { "firstName": "Maya", "lastName": "Example", "idDocNo": "MX1234567" },
+  "note": "Example Exchange's own record of its customer, from its usual sign-up checks. Made-up test data."
+}
