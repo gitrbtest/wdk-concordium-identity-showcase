@@ -19,7 +19,7 @@
  *   RELAY_BASE    the address the phone uses to reach this server (default http://10.0.2.2:4400: the Android
  *                 emulator's name for this computer; for a real phone on the same Wi-Fi, http://<this PC's IP>:4400)
  *   CUSTOMER      the customer record file (default customer.json)
- *   PAYOUT_SEED, PAYOUT_PROVIDER_INDEX, PAYOUT_IDENTITY_INDEX, PAYOUT_ADDRESS
+ *   PAYOUT_SEED, PAYOUT_PROVIDER_INDEX, PAYOUT_IDENTITY_INDEX, PAYOUT_ACCOUNT_NUMBER (default 0), PAYOUT_ADDRESS
  *                 the testnet account Example Exchange pays withdrawals from (in .env.payout, read by npm start).
  *                 Without them, a released withdrawal is not paid out.
  *   ASK_IDENTITY_INDEX, ASK_ACCOUNT_NUMBER, ASK_ADDRESS, SPONSOR_ACCOUNT_NUMBER, SPONSOR_ADDRESS
@@ -312,7 +312,7 @@ async function topUpCard(amount) {
 async function checkRegulatedPayment() {
   const manager = new WalletManagerConcordium(process.env.PAYOUT_SEED, { ...CONCORDIUM_TESTNET_CONFIG });
   try {
-    const treasury = await manager.getAccountByPath(`${process.env.PAYOUT_PROVIDER_INDEX}/${process.env.PAYOUT_IDENTITY_INDEX}/0`);
+    const treasury = await manager.getAccountByPath(`${process.env.PAYOUT_PROVIDER_INDEX}/${process.env.PAYOUT_IDENTITY_INDEX}/${Number(process.env.PAYOUT_ACCOUNT_NUMBER ?? 0)}`);
     const office = corp.suppliers.find((x) => x.id === 'office');
     const check = await treasury.checkTransfer({ token: corp.regulatedToken, recipient: office.address, amount: 20n * 10n ** 6n });
     return { token: corp.regulatedToken, to: office.name, ok: check.ok, reasons: check.reasons.map((r) => ({ reason: r.reason, message: r.message })) };
@@ -332,14 +332,14 @@ async function tokenBalance(address, tokenId = corp.token) {
 
 /** Example Exchange's paying account (testnet), or null if none is set up. */
 function payoutAccount() {
-  const { PAYOUT_SEED, PAYOUT_PROVIDER_INDEX, PAYOUT_IDENTITY_INDEX, PAYOUT_ADDRESS } = process.env;
+  const { PAYOUT_SEED, PAYOUT_PROVIDER_INDEX, PAYOUT_IDENTITY_INDEX, PAYOUT_ACCOUNT_NUMBER = '0', PAYOUT_ADDRESS } = process.env;
   if (!PAYOUT_SEED || !PAYOUT_ADDRESS) return null;
   const keys = sdk.ConcordiumHdWallet.fromSeedPhrase(PAYOUT_SEED, 'Testnet');
-  const [p, i] = [Number(PAYOUT_PROVIDER_INDEX), Number(PAYOUT_IDENTITY_INDEX)];
+  const [p, i, c] = [Number(PAYOUT_PROVIDER_INDEX), Number(PAYOUT_IDENTITY_INDEX), Number(PAYOUT_ACCOUNT_NUMBER)];
   return {
     address: PAYOUT_ADDRESS,
-    publicKey: keys.getAccountPublicKey(p, i, 0).toString('hex'),
-    signer: sdk.buildBasicAccountSigner(keys.getAccountSigningKey(p, i, 0).toString('hex')),
+    publicKey: keys.getAccountPublicKey(p, i, c).toString('hex'),
+    signer: sdk.buildBasicAccountSigner(keys.getAccountSigningKey(p, i, c).toString('hex')),
   };
 }
 const payer = payoutAccount();

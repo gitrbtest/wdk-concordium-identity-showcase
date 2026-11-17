@@ -135,7 +135,7 @@ public test phrase's identity 1. Its details differ from Maya's, so start the se
 
 - Each question (tabs 1-3) is recorded on chain for about 5 test CCD, paid by the sponsor account (`4kJZHv…`).
 - Withdrawals (up to 50 test CCD each), pledge fingerprints (about 3.4 test CCD) and the company card's fees are paid
-  by the funding account (`3GEmZc…`).
+  by the showcase's own account (`4Mcp1F…`, account 16 of the public test identity; it also holds Example Corp's TN).
 
 Both are shared accounts of the public test phrase: anyone can use them, so they may run low. Top them up with test
 CCD (for example with Concordium's testnet wallet faucet), or put your own testnet accounts in `.env.payout`.
