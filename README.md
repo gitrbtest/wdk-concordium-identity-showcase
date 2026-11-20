@@ -10,19 +10,22 @@ app (Maya's wallet) and one demo page with a tab per story, each played by a mad
 | 3 | Example Community Fund | Pledge to a cause | each pledge: a Concordium proof (a verified adult) and an Ethereum signature (the paying address); paid later in test USDT on Ethereum Sepolia through WDK's EVM module, matched to its pledge |
 | 4 | Maya's wallet | New phone | restore from the seed phrase alone: the identity back from its provider (no new verification), the accounts found on chain, the pledges asked back from the fund |
 | 5 | Example Corp | Company card | an allowance in a token on Maya's own account: approved suppliers only, each payment authorised by the company, which pays its fee (sponsored); a regulated token's allow list checked before sending |
+| 6 | Example Corp, Example Data Shop | An AI agent that pays | a program with its own account (no CCD) buys data by itself: it answers the shop's question following its own consent policy, and every payment needs the company's co-signature, given only within its rules (approved suppliers, limits); a payment planted in the data, and runaway spending, are refused |
 
 Each tab explains the story (today vs. with a Concordium identity), says how to try it, lists what a real system
 would add ("Kept simple on purpose"), and shows the organisation's own code ("Show the code").
 
 Proofs are Concordium's version 1 proofs: the organisation records its question on chain first (a small fee, paid by
-a sponsor account), and the wallet answers from the identity itself (tab 2) or from an account (tabs 1 and 3).
+a sponsor account), and the wallet answers from the identity itself (tab 2) or from an account (tabs 1 and 3; in tab 6,
+the agent answers from its own account).
 
 ## What is in the repository
 
 ```
 exchange/      the organisations' side: one Node.js server (port 4400) with the demo page, the relay to the phone,
-               the checks, the payouts, the pledge campaign and the company card
+               the checks, the payouts, the pledge campaign, the company card, and the AI agent's company and shop
   server.mjs, public/index.html
+  agent.mjs                Example Corp's AI agent for tab 6 (a separate program; the page can start it)
   customer.json            Example Exchange's record of Maya (made-up: Maya Example, MX1234567)
   test-wallet.mjs          a stand-in phone for tabs 1-2, to try them from the computer
   test-donor.mjs           Rob and Sam, the other two donors of tab 3 (run from the computer)
@@ -126,6 +129,10 @@ Each tab's "Try it" section has the steps. In short:
   clears the board.
 - **Tab 4:** the steps are on the tab: show the seed phrase, keep a copy of the words, "Start again", then restore.
 - **Tab 5:** top up Maya's card on the page, then pay the suppliers from the app's company card.
+- **Tab 6** (no phone needed): press "1. Buy a dataset", then "2. Tricked by the data", then "3. Runaway: keep buying".
+  The agent's output appears on the page; Example Corp's log and the shop's sales fill in as it goes. The same from a
+  terminal in `exchange`: `npm run agent -- buy` (or `tricked`, `runaway`). The agent may spend 2 TN a day (UTC):
+  "Start the day again (demo)" lets you run the scenes again at once. Top up the agent on the page if it runs low.
 
 Without the phone, `npm run test-wallet -- <code>` in `exchange` answers tabs 1 and 2 from the computer, as the
 public test phrase's identity 1. Its details differ from Maya's, so start the server with
@@ -136,6 +143,9 @@ public test phrase's identity 1. Its details differ from Maya's, so start the se
 - Each question (tabs 1-3) is recorded on chain for about 5 test CCD, paid by the sponsor account (`4kJZHv…`).
 - Withdrawals (up to 50 test CCD each), pledge fingerprints (about 3.4 test CCD) and the company card's fees are paid
   by the showcase's own account (`4Mcp1F…`, account 16 of the public test identity; it also holds Example Corp's TN).
+- Tab 6: each of the agent's payments costs Example Corp about 6 test CCD in fees (from account 16); the shop's
+  question, once a day, about 5 test CCD (the sponsor account). A full run of the three scenes: about 35 test CCD, and
+  2 TN from the agent (`3RsZNB…`, account 17; it must hold no CCD) to the shop (`4BvaeU…`, account 15).
 
 Both are shared accounts of the public test phrase: anyone can use them, so they may run low. Top them up with test
 CCD (for example with Concordium's testnet wallet faucet), or put your own testnet accounts in `.env.payout`.
@@ -146,6 +156,10 @@ CCD (for example with Concordium's testnet wallet faucet), or put your own testn
   the pledges. Withdrawals and over-18 questions live in memory: a restart clears them.
 - **Concordium's public testnet node** sometimes answers with a temporary error (for example HTTP 502). The page then
   says so: start that step again.
+- **Tab 6's state** (Example Corp's log of the agent's requests, the shop's sales) is kept in
+  `exchange\corp-state.json` (not committed), with tab 5's payments.
+- **The AI agent is a script,** not an AI model: it follows fixed steps, and falls for the line planted in the data on
+  purpose, so each run shows the same thing.
 - **The relay** stands in for the wallet connection (WalletConnect in a real app). It listens on this computer only.
 - **A real phone** (not tried yet): on the same Wi-Fi as the computer, start the server with `$env:HOST="0.0.0.0";
   $env:RELAY_BASE="http://<the computer's IP>:4400"; npm start`, and Metro with

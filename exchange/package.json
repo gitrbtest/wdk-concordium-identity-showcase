@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env.payout --env-file-if-exists=.env.ethereum server.mjs",
     "donor": "node --env-file-if-exists=.env.ethereum test-donor.mjs",
-    "test-wallet": "node test-wallet.mjs"
+    "test-wallet": "node test-wallet.mjs",
+    "agent": "node --env-file-if-exists=.env.payout agent.mjs"
   },
   "dependencies": {
     "@concordium/wdk-identity-concordium": "file:packages/concordium-wdk-identity-concordium-0.0.0.tgz",
