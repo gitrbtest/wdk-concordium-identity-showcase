@@ -646,6 +646,12 @@ tops up an allowance ──────►  its own account: TN, no CCD
         <li><b>The company's identity:</b> a test identity plays Example Corp; a real company would use its Business ID.</li>
         <li><b>Two signatures:</b> here the agent is kept in check because its account holds no CCD. A stricter account
           would need both the agent's and the company's signatures for anything at all.</li>
+        <li><b>Who is asking:</b> Example Corp checks that each payment is signed by the agent's key, so nobody else can
+          spend its allowance. It does not check who sends a request to authorise a payment: a stranger could send
+          requests in the agent's name that never get paid but use up its daily limit. A real system would have the
+          agent sign its requests too.</li>
+        <li><b>One agent:</b> Example Corp knows a single agent here; a real company would keep a list of its agents,
+          each with its own account, allowance and rules.</li>
         <li><b>The supplier list</b> is Example Corp's rule; with a regulated token its issuer could also enforce one on chain.</li>
         <li><b>Real money:</b> a testnet token (TN) stands in for a stablecoin.</li>
         <li><b>Payment standards:</b> real sellers would use a shared protocol for "pay, then get the data"; this demo's
